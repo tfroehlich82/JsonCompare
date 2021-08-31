@@ -1,13 +1,20 @@
+from jsoncomparison.errors import UnexpectedKey
 import unittest
 
+from jsoncomparison import (
+    NO_DIFF,
+    Compare,
+    KeyNotExist,
+    LengthsNotEqual,
+    TypesNotEqual,
+    ValueNotFound,
+    ValuesNotEqual,
+)
+
 from . import load_json
-from jsoncomparison import Compare, NO_DIFF, \
-    ValuesNotEqual, TypesNotEqual, KeyNotExist, ValueNotFound, LengthsNotEqual
 
 
 class CompareTestCase(unittest.TestCase):
-    config = {}
-    compare = Compare()
 
     def setUp(self):
         self.config = load_json('compare/config.json')
@@ -52,11 +59,27 @@ class CompareTestCase(unittest.TestCase):
         self.assertEqual(diff, NO_DIFF)
 
         diff = self.compare.check(e, a)
-        self.assertEqual(diff, {
-            'int': ValuesNotEqual(1, 2).explain(),
-            'float': TypesNotEqual(1.23, 1).explain(),
-            'bool': KeyNotExist('bool', None).explain()
-        })
+        self.assertEqual(
+            diff, {
+                'int': ValuesNotEqual(1, 2).explain(),
+                'float': TypesNotEqual(1.23, 1).explain(),
+                'bool': KeyNotExist('bool', None).explain(),
+            },
+        )
+
+    def test_compare_dict_diff_unexpected(self):
+        e = {'int': 2, 'str': 'Hi', 'float': 1}
+        a = {'int': 1, 'str': 'Hi', 'float': 1.23, 'bool': True}
+
+        diff = self.compare.check(e, a)
+        self.assertEqual(
+            diff, {
+                'int': ValuesNotEqual(2, 1).explain(),
+                'float': TypesNotEqual(1, 1.23).explain(),
+                'bool': UnexpectedKey(None, 'bool').explain()
+            },
+        )
+
 
     def test_list_compare(self):
         e = [1.23, 2, 'three', True]
@@ -66,13 +89,15 @@ class CompareTestCase(unittest.TestCase):
         self.assertEqual(diff, NO_DIFF)
 
         diff = self.compare.check(e, a)
-        self.assertEqual(diff, {
-            '_length': LengthsNotEqual(len(e), len(a)).explain(),
-            '_content': {
-                1: ValueNotFound(2, None).explain(),
-                3: ValueNotFound(True, None).explain(),
+        self.assertEqual(
+            diff, {
+                '_length': LengthsNotEqual(len(e), len(a)).explain(),
+                '_content': {
+                    1: ValueNotFound(2, None).explain(),
+                    3: ValueNotFound(True, None).explain(),
+                },
             },
-        })
+        )
 
     def test_prepare_method(self):
         e = [1, 2, 3, 4]
